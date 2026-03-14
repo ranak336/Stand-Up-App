@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "752424955262",
+    "project_id": "stand-up-635bc",
+    "storage_bucket": "stand-up-635bc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:752424955262:android:3fdc546b0ad68a85b1d72f",
+        "android_client_info": {
+          "package_name": "com.example.pulse_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBCXzI-5n18aIr9AreskIgnLdlkLzfJURw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:752424955262:android:0c08de9ce01154cfb1d72f",
+        "android_client_info": {
+          "package_name": "com.example.stand_up"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBCXzI-5n18aIr9AreskIgnLdlkLzfJURw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:752424955262:android:df6eb57e48ca6ea8b1d72f",
+        "android_client_info": {
+          "package_name": "com.example.standup_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBCXzI-5n18aIr9AreskIgnLdlkLzfJURw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

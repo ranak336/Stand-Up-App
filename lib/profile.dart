@@ -1,10 +1,22 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import '../auth_service.dart';
+import 'auth_service.dart';
+import 'streak_service.dart';
 import 'welcome_page.dart';
+import 'rewards_page.dart';
 
 class Profile extends StatelessWidget {
   const Profile({super.key});
+
+  String _formatDate(Timestamp? timestamp) {
+    if (timestamp == null) return "No date";
+    final date = timestamp.toDate();
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    return "${months[date.month - 1]} ${date.day}, ${date.year}";
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,9 +47,10 @@ class Profile extends StatelessWidget {
               ? data!['name'].toString()
               : "User";
 
-          return Padding(
+          return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 /// USER CARD
                 Card(
@@ -85,55 +98,70 @@ class Profile extends StatelessWidget {
                 const SizedBox(height: 20),
 
                 /// STATS
-                Row(
-                  children: const [
-                    Expanded(
-                      child: Card(
-                        child: Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Column(
-                            children: [
-                              Icon(
-                                Icons.local_fire_department,
-                                color: Colors.orange,
+                FutureBuilder<List<int>>(
+                  future: Future.wait([
+                    StreakService.getStreak(),
+                    StreakService.getRewardPoints(),
+                  ]),
+                  builder: (context, streakSnapshot) {
+                    if (streakSnapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final streak = streakSnapshot.data?[0] ?? 0;
+                    final points = streakSnapshot.data?[1] ?? 0;
+
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                children: [
+                                  const Icon(
+                                    Icons.local_fire_department,
+                                    color: Colors.orange,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    "$streak",
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const Text("Day Streak"),
+                                ],
                               ),
-                              SizedBox(height: 8),
-                              Text(
-                                "8",
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text("Day Streak"),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Card(
-                        child: Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Column(
-                            children: [
-                              Icon(Icons.emoji_events, color: Colors.amber),
-                              SizedBox(height: 8),
-                              Text(
-                                "50",
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                children: [
+                                  const Icon(Icons.emoji_events, color: Colors.amber),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    "$points",
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const Text("Total Points"),
+                                ],
                               ),
-                              Text("Total Points"),
-                            ],
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
 
                 const SizedBox(height: 20),
@@ -151,8 +179,143 @@ class Profile extends StatelessWidget {
                       backgroundColor: const Color(0xFF386641),
                       padding: const EdgeInsets.all(16),
                     ),
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const RewardsPage(),
+                        ),
+                      );
+                    },
                   ),
+                ),
+
+                const SizedBox(height: 24),
+
+                /// MEETING HISTORY TITLE
+                const Row(
+                  children: [
+                    Icon(Icons.calendar_today, color: Color(0xFF386641)),
+                    SizedBox(width: 8),
+                    Text(
+                      "Meeting History",
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                /// MEETING HISTORY LIST
+                StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(uid)
+                      .collection('meeting_history')
+                      .orderBy('date', descending: true)
+                      .snapshots(),
+                  builder: (context, historySnapshot) {
+                    if (historySnapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (!historySnapshot.hasData ||
+                        historySnapshot.data!.docs.isEmpty) {
+                      return Card(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        elevation: 3,
+                        child: const Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Center(
+                            child: Text(
+                              "No meeting history yet",
+                              style: TextStyle(fontSize: 16),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
+                    final docs = historySnapshot.data!.docs;
+
+                    return Column(
+                      children: docs.map((doc) {
+                        final item = doc.data();
+                        final title = item['title']?.toString() ?? "Stand-up Meeting";
+                        final status = item['status']?.toString() ?? "Attended";
+                        final date = item['date'] as Timestamp?;
+
+                        final bool participated =
+                            status.toLowerCase() == "participated";
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: Card(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 3,
+                            child: Padding(
+                              padding: const EdgeInsets.all(18),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          title,
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          _formatDate(date),
+                                          style: const TextStyle(
+                                            fontSize: 15,
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: participated
+                                          ? Colors.green.shade100
+                                          : Colors.orange.shade100,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      status,
+                                      style: TextStyle(
+                                        color: participated
+                                            ? Colors.green.shade700
+                                            : Colors.orange.shade700,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
                 ),
 
                 const SizedBox(height: 16),
@@ -161,13 +324,13 @@ class Profile extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    icon: const Icon(Icons.logout, color: Colors.white),
+                    icon: const Icon(Icons.logout, color: Colors.black),
                     label: const Text(
                       "Logout",
-                      style: TextStyle(color: Colors.white),
+                      style: TextStyle(color: Colors.black),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
+                      backgroundColor: Colors.white,
                       padding: const EdgeInsets.all(16),
                     ),
                     onPressed: () async {

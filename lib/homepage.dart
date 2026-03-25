@@ -1,10 +1,14 @@
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:stand_up/streak_service.dart';
+import 'auth_service.dart';
 
 import 'profile.dart';
 import 'booking_type_page.dart';
 import 'calendar_page.dart';
+import 'explore_themes_page.dart';
 
 class HomePage extends StatefulWidget {
   final String userName;
@@ -16,98 +20,26 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  List<bool> monthlyFires = List.generate(4, (_) => false);
-  int currentMonth = DateTime.now().month;
-  int todaySaturdayIndex = -1;
-  bool popupShown = false;
+  int currentStreak = 0;
 
   @override
   void initState() {
     super.initState();
-    calculateSaturdayIndex();
-    checkForPopup();
+    _loadStreak();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await StreakService.checkTuesdayStreak(context);
+      if (!mounted) return;
+      _loadStreak();
+    });
   }
 
-  void calculateSaturdayIndex() {
-    DateTime now = DateTime.now();
-    DateTime firstDay = DateTime(now.year, now.month, 1);
-
-    int count = 0;
-
-    for (int i = 0; i < now.day; i++) {
-      DateTime day = firstDay.add(Duration(days: i));
-
-      if (day.weekday == DateTime.saturday) {
-        if (day.day == now.day) {
-          todaySaturdayIndex = count;
-        }
-        count++;
-      }
-    }
-  }
-
-  void checkForPopup() {
-    if (DateTime.now().weekday == DateTime.saturday &&
-        todaySaturdayIndex != -1 &&
-        todaySaturdayIndex < monthlyFires.length &&
-        !monthlyFires[todaySaturdayIndex] &&
-        !popupShown) {
-      popupShown = true;
-
-      Future.delayed(Duration.zero, () {
-        showFirePopup(todaySaturdayIndex);
-      });
-    }
-  }
-
-  void markFireCompleted(int index) {
-    if (index >= 0 && index < monthlyFires.length) {
-      setState(() {
-        monthlyFires[index] = true;
-      });
-    }
-  }
-
-  void resetIfNewMonth() {
-    int monthNow = DateTime.now().month;
-
-    if (monthNow != currentMonth) {
-      currentMonth = monthNow;
-
-      setState(() {
-        monthlyFires = List.generate(4, (_) => false);
-      });
-    }
-  }
-
-  void showFirePopup(int index) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return AlertDialog(
-          content: const Text("Did you participate?"),
-          actions: [
-            TextButton.icon(
-              icon: const Icon(Icons.close, color: Colors.red),
-              label: const Text("Skip", style: TextStyle(color: Colors.red)),
-              onPressed: () {
-                Navigator.pop(context);
-              },
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.check),
-              label: const Text("Yes (+2)"),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              onPressed: () {
-                markFireCompleted(index);
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        );
-      },
-    );
+  Future<void> _loadStreak() async {
+    int streak = await StreakService.getStreak();
+    if (!mounted) return;
+    setState(() {
+      currentStreak = streak;
+    });
   }
 
   void _handleMenuTap(String title) {
@@ -120,6 +52,11 @@ class _HomePageState extends State<HomePage> {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => const CalendarPage()),
+      );
+    } else if (title == "Explore Themes") {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ExploreThemesPage()),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -141,10 +78,27 @@ class _HomePageState extends State<HomePage> {
         .snapshots();
   }
 
+  Future<String> _getUserName() async {
+    final user = AuthService().currentUser;
+    if (user == null) return widget.userName.isNotEmpty ? widget.userName : "User";
+
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+    final data = doc.data();
+    final name = data?['name']?.toString().trim();
+
+    if (name != null && name.isNotEmpty) {
+      return name;
+    }
+
+    return widget.userName.isNotEmpty ? widget.userName : "User";
+  }
+
   @override
   Widget build(BuildContext context) {
-    resetIfNewMonth();
-
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       body: SingleChildScrollView(
@@ -164,7 +118,6 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  /// TOP ROW
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -203,13 +156,19 @@ class _HomePageState extends State<HomePage> {
 
                   Align(
                     alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Hello, ${widget.userName}! 👋",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: FutureBuilder<String>(
+                      future: _getUserName(),
+                      builder: (context, snapshot) {
+                        final name = snapshot.data ?? widget.userName;
+                        return Text(
+                          "Hello, $name! 👋",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
+                      },
                     ),
                   ),
 
@@ -224,20 +183,29 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 20),
 
                   /// FIRE STREAK
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      4,
-                          (index) => Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: Icon(
-                          Icons.local_fire_department,
-                          color: monthlyFires[index]
-                              ? Colors.orange
-                              : Colors.white,
-                          size: 28,
-                        ),
-                      ),
+                  SizedBox(
+                    height: 30,
+                    child: FutureBuilder<int>(
+                      future: StreakService.getStreak(),
+                      builder: (context, snapshot) {
+                        int streak = snapshot.data ?? 0;
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            4,
+                                (index) => Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                              child: Icon(
+                                Icons.local_fire_department,
+                                color: index < streak
+                                    ? Colors.orange
+                                    : Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ],
@@ -279,184 +247,46 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 28),
 
-            /// UPCOMING SESSION TITLE
+            /// UPCOMING SESSION
+            /// UPCOMING SESSION
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   "Upcoming Session",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF386641),
+                  ),
                 ),
               ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
 
-            /// UPCOMING SESSION CARD
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                 stream: _getUpcomingSessionStream(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black12, blurRadius: 10),
-                        ],
-                      ),
-                      child: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                    );
+                    return _loadingCard();
                   }
-
-                  if (snapshot.hasError) {
-                    return Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black12, blurRadius: 10),
-                        ],
-                      ),
-                      child: Text(
-                        "No upcoming session",
-                        style: TextStyle(
-                          color: Colors.grey[700],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    );
-                  }
-
+                  if (snapshot.hasError) return _noSessionCard();
                   final docs = snapshot.data?.docs ?? [];
-
-                  if (docs.isEmpty) {
-                    return Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black12, blurRadius: 10),
-                        ],
-                      ),
-                      child: const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "No upcoming session",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF386641),
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            "Your next booked session will appear here.",
-                            style: TextStyle(color: Colors.black54),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
+                  if (docs.isEmpty) return _noSessionCard();
 
                   final data = docs.first.data();
                   final Timestamp timestamp = data['date'] as Timestamp;
                   final DateTime sessionDate = timestamp.toDate();
-
-                  final String topic = (data['topicTitle'] != null &&
-                      data['topicTitle'].toString().trim().isNotEmpty)
-                      ? data['topicTitle'].toString()
-                      : (data['topic'] ?? 'Stand-up Session').toString();
-
-                  final String sessionType =
-                  (data['sessionType'] ?? 'individual').toString();
-                  final String visibility =
-                  (data['visibility'] ?? 'Public').toString();
+                  final String topic =
+                  (data['topicTitle'] ?? 'Stand-up Session').toString();
                   final String userName =
                   (data['userName'] ?? 'User').toString();
 
-                  return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: const [
-                        BoxShadow(color: Colors.black12, blurRadius: 10),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              backgroundColor: Colors.green[50],
-                              child: const Icon(
-                                Icons.calendar_today,
-                                color: Color(0xFF386641),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                topic,
-                                style: const TextStyle(
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF386641),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          "Presenter: $userName",
-                          style: const TextStyle(
-                            fontSize: 15,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          "Date: ${DateFormat('EEEE, MMMM d, yyyy').format(sessionDate)}",
-                          style: const TextStyle(
-                            fontSize: 15,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          "Type: ${sessionType[0].toUpperCase()}${sessionType.substring(1)}",
-                          style: const TextStyle(
-                            fontSize: 15,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          "Visibility: $visibility",
-                          style: const TextStyle(
-                            fontSize: 15,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
+                  return _sessionCard(topic, userName, sessionDate);
                 },
               ),
             ),
@@ -492,4 +322,91 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
+  Widget _loadingCard() => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)],
+    ),
+    child: const Center(child: CircularProgressIndicator()),
+  );
+
+  Widget _noSessionCard() => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)],
+    ),
+    child: const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "No upcoming session",
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF386641),
+          ),
+        ),
+        SizedBox(height: 8),
+        Text(
+          "Your next booked session will appear here.",
+          style: TextStyle(color: Colors.black54),
+        ),
+      ],
+    ),
+  );
+
+  Widget _sessionCard(String topic, String userName, DateTime sessionDate) =>
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: Colors.green[50],
+                  child: const Icon(
+                    Icons.calendar_today,
+                    color: Color(0xFF386641),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    topic,
+                    style: const TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF386641),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              "Presenter: $userName",
+              style: const TextStyle(fontSize: 15, color: Colors.black87),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              "Date: ${DateFormat('EEEE, MMMM d, yyyy').format(sessionDate)}",
+              style: const TextStyle(fontSize: 15, color: Colors.black87),
+            ),
+          ],
+        ),
+      );
 }

@@ -56,17 +56,17 @@ class _CalendarPageState extends State<CalendarPage> {
   Future<void> _deleteBooking(String bookingId) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Booking'),
         content: const Text('Are you sure you want to delete this booking?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
             child: const Text('Delete'),
           ),
         ],
@@ -83,7 +83,10 @@ class _CalendarPageState extends State<CalendarPage> {
     }
   }
 
-  Future<bool> _isDateBookedByAnother(DateTime date, String currentBookingId) async {
+  Future<bool> _isDateBookedByAnother(
+      DateTime date,
+      String currentBookingId,
+      ) async {
     final dateOnly = DateTime(date.year, date.month, date.day);
 
     final query = await _firestore
@@ -112,9 +115,11 @@ class _CalendarPageState extends State<CalendarPage> {
 
     final result = <DateTime>[];
 
-    for (DateTime day = first;
+    for (
+    DateTime day = first;
     !day.isAfter(last);
-    day = day.add(const Duration(days: 1))) {
+    day = day.add(const Duration(days: 1))
+    ) {
       final dateOnly = DateTime(day.year, day.month, day.day);
       final isTuesday = dateOnly.weekday == DateTime.tuesday;
       final isCurrentBookingDate = _isSameDate(dateOnly, currentBookingDate);
@@ -136,7 +141,7 @@ class _CalendarPageState extends State<CalendarPage> {
       List<DateTime> bookedDates,
       ) async {
     final currentDate = (data['date'] as Timestamp).toDate();
-    DateTime selectedDate =
+    final selectedDate =
     DateTime(currentDate.year, currentDate.month, currentDate.day);
 
     final titleController =
@@ -149,19 +154,19 @@ class _CalendarPageState extends State<CalendarPage> {
     final groupMembersController =
     TextEditingController(text: groupMembersList.join(', '));
 
-    String visibility = (data['visibility'] ?? 'Public').toString();
+    final visibility = (data['visibility'] ?? 'Public').toString();
 
     final availableDates =
     _availableTuesdaysForMonth(currentMonth, bookedDates, selectedDate);
 
-    await showDialog(
+    await showDialog<void>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         DateTime tempDate = selectedDate;
         String tempVisibility = visibility;
 
         return StatefulBuilder(
-          builder: (context, setStateDialog) {
+          builder: (builderContext, setStateDialog) {
             return AlertDialog(
               title: const Text('Edit Booking'),
               content: SingleChildScrollView(
@@ -170,7 +175,9 @@ class _CalendarPageState extends State<CalendarPage> {
                   children: [
                     DropdownButtonFormField<DateTime>(
                       value: availableDates.any((d) => _isSameDate(d, tempDate))
-                          ? availableDates.firstWhere((d) => _isSameDate(d, tempDate))
+                          ? availableDates.firstWhere(
+                            (d) => _isSameDate(d, tempDate),
+                      )
                           : null,
                       decoration: const InputDecoration(
                         labelText: 'Date',
@@ -208,8 +215,14 @@ class _CalendarPageState extends State<CalendarPage> {
                         border: OutlineInputBorder(),
                       ),
                       items: const [
-                        DropdownMenuItem(value: 'Public', child: Text('Public')),
-                        DropdownMenuItem(value: 'Private', child: Text('Private')),
+                        DropdownMenuItem(
+                          value: 'Public',
+                          child: Text('Public'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Private',
+                          child: Text('Private'),
+                        ),
                       ],
                       onChanged: (value) {
                         if (value != null) {
@@ -242,7 +255,7 @@ class _CalendarPageState extends State<CalendarPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.of(dialogContext).pop(),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
@@ -254,6 +267,7 @@ class _CalendarPageState extends State<CalendarPage> {
                     DateTime(tempDate.year, tempDate.month, tempDate.day);
 
                     if (dateOnly.weekday != DateTime.tuesday) {
+                      if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Only Tuesday can be booked'),
@@ -263,6 +277,7 @@ class _CalendarPageState extends State<CalendarPage> {
                     }
 
                     if (_isPast(dateOnly)) {
+                      if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('You cannot select a past date'),
@@ -275,6 +290,7 @@ class _CalendarPageState extends State<CalendarPage> {
                     await _isDateBookedByAnother(dateOnly, bookingId);
 
                     if (bookedByAnother) {
+                      if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('This date is already booked'),
@@ -298,7 +314,8 @@ class _CalendarPageState extends State<CalendarPage> {
                     });
 
                     if (!mounted) return;
-                    Navigator.pop(context);
+
+                    Navigator.of(dialogContext).pop();
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
@@ -592,8 +609,9 @@ class _CalendarPageState extends State<CalendarPage> {
                       data['userId'] != null &&
                       data['userId'].toString() == currentUserId;
 
-                  final groupMembers =
-                  ((data['groupMembers'] ?? []) as List).map((e) => e.toString()).toList();
+                  final groupMembers = ((data['groupMembers'] ?? []) as List)
+                      .map((e) => e.toString())
+                      .toList();
 
                   final topicTitle = data['topicTitle'] == null ||
                       data['topicTitle'].toString().trim().isEmpty
@@ -650,7 +668,6 @@ class _CalendarPageState extends State<CalendarPage> {
                             color: Colors.black54,
                           ),
                         ),
-
                         if ((data['sessionType'] ?? '') == 'group' &&
                             groupMembers.isNotEmpty) ...[
                           const SizedBox(height: 10),
@@ -675,7 +692,6 @@ class _CalendarPageState extends State<CalendarPage> {
                             ),
                           ),
                         ],
-
                         if (isOwner) ...[
                           const SizedBox(height: 14),
                           Row(

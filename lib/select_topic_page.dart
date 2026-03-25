@@ -22,9 +22,17 @@ class _SelectTopicPageState extends State<SelectTopicPage> {
     'Communication Skills',
     'Time Management',
     'Leadership Principles',
+    'Other',
   ];
 
   String? selectedTopic;
+  final TextEditingController otherTopicController = TextEditingController();
+
+  @override
+  void dispose() {
+    otherTopicController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,45 +60,84 @@ class _SelectTopicPageState extends State<SelectTopicPage> {
             final selected = selectedTopic == topic;
             return Padding(
               padding: const EdgeInsets.only(bottom: 14),
-              child: InkWell(
-                onTap: () => setState(() => selectedTopic = topic),
-                child: Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: selected ? const Color(0xFFEAF6EF) : Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: selected ? kPrimaryGreen : kCardBorder,
-                      width: selected ? 2 : 1,
+              child: Column(
+                children: [
+                  InkWell(
+                    onTap: () => setState(() => selectedTopic = topic),
+                    child: Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: selected ? const Color(0xFFEAF6EF) : Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: selected ? kPrimaryGreen : kCardBorder,
+                          width: selected ? 2 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.lightbulb_outline, color: kPrimaryGreen),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              topic,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: kDarkText,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.lightbulb_outline, color: kPrimaryGreen),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          topic,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: kDarkText,
+                  if (topic == 'Other' && selectedTopic == 'Other') ...[
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: otherTopicController,
+                      decoration: InputDecoration(
+                        hintText: 'Write your topic here',
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: kCardBorder),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(color: kCardBorder),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                            color: kPrimaryGreen,
+                            width: 2,
                           ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ],
+                ],
               ),
             );
           }),
           const SizedBox(height: 24),
           PrimaryButton(
             text: 'Continue',
-            onPressed: selectedTopic == null
+            onPressed: selectedTopic == null ||
+                (selectedTopic == 'Other' &&
+                    otherTopicController.text.trim().isEmpty)
                 ? null
                 : () {
-              widget.data.topic = selectedTopic!;
+              widget.data.topic = selectedTopic == 'Other'
+                  ? otherTopicController.text.trim()
+                  : selectedTopic!;
               Navigator.push(
                 context,
                 MaterialPageRoute(

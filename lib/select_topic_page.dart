@@ -14,6 +14,7 @@ class SelectTopicPage extends StatefulWidget {
 
 class _SelectTopicPageState extends State<SelectTopicPage> {
   final List<String> topics = [
+    'Propose Topic',
     'Agile Methodologies',
     'Code Review Best Practices',
     'Team Collaboration',
@@ -22,15 +23,14 @@ class _SelectTopicPageState extends State<SelectTopicPage> {
     'Communication Skills',
     'Time Management',
     'Leadership Principles',
-    'Other',
   ];
 
   String? selectedTopic;
-  final TextEditingController otherTopicController = TextEditingController();
+  final TextEditingController proposeController = TextEditingController();
 
   @override
   void dispose() {
-    otherTopicController.dispose();
+    proposeController.dispose();
     super.dispose();
   }
 
@@ -56,8 +56,10 @@ class _SelectTopicPageState extends State<SelectTopicPage> {
             style: TextStyle(fontSize: 16, color: Colors.black54),
           ),
           const SizedBox(height: 24),
+
           ...topics.map((topic) {
             final selected = selectedTopic == topic;
+
             return Padding(
               padding: const EdgeInsets.only(bottom: 14),
               child: Column(
@@ -67,7 +69,9 @@ class _SelectTopicPageState extends State<SelectTopicPage> {
                     child: Container(
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
-                        color: selected ? const Color(0xFFEAF6EF) : Colors.white,
+                        color: selected
+                            ? const Color(0xFFEAF6EF)
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
                           color: selected ? kPrimaryGreen : kCardBorder,
@@ -76,7 +80,12 @@ class _SelectTopicPageState extends State<SelectTopicPage> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.lightbulb_outline, color: kPrimaryGreen),
+                          Icon(
+                            topic == "Propose Topic"
+                                ? Icons.add
+                                : Icons.lightbulb_outline,
+                            color: kPrimaryGreen,
+                          ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
@@ -92,12 +101,14 @@ class _SelectTopicPageState extends State<SelectTopicPage> {
                       ),
                     ),
                   ),
-                  if (topic == 'Other' && selectedTopic == 'Other') ...[
+
+                  if (topic == 'Propose Topic' &&
+                      selectedTopic == 'Propose Topic') ...[
                     const SizedBox(height: 12),
                     TextField(
-                      controller: otherTopicController,
+                      controller: proposeController,
                       decoration: InputDecoration(
-                        hintText: 'Write your topic here',
+                        hintText: 'Write your topic',
                         filled: true,
                         fillColor: Colors.white,
                         contentPadding: const EdgeInsets.symmetric(
@@ -106,11 +117,13 @@ class _SelectTopicPageState extends State<SelectTopicPage> {
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: kCardBorder),
+                          borderSide:
+                          const BorderSide(color: kCardBorder),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: kCardBorder),
+                          borderSide:
+                          const BorderSide(color: kCardBorder),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
@@ -127,21 +140,24 @@ class _SelectTopicPageState extends State<SelectTopicPage> {
               ),
             );
           }),
+
           const SizedBox(height: 24),
+
           PrimaryButton(
             text: 'Continue',
             onPressed: selectedTopic == null ||
-                (selectedTopic == 'Other' &&
-                    otherTopicController.text.trim().isEmpty)
+                (selectedTopic == 'Propose Topic' &&
+                    proposeController.text.trim().isEmpty)
                 ? null
                 : () {
-              widget.data.topic = selectedTopic == 'Other'
-                  ? otherTopicController.text.trim()
+              widget.data.topic = selectedTopic == 'Propose Topic'
+                  ? proposeController.text.trim()
                   : selectedTopic!;
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => MeetingDetailsPage(data: widget.data),
+                  builder: (_) =>
+                      MeetingDetailsPage(data: widget.data),
                 ),
               );
             },

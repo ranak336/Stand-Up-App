@@ -1,4 +1,3 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +8,7 @@ import 'profile.dart';
 import 'booking_type_page.dart';
 import 'calendar_page.dart';
 import 'explore_themes_page.dart';
+import 'news_page.dart';
 
 class HomePage extends StatefulWidget {
   final String userName;
@@ -21,6 +21,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int currentStreak = 0;
+  int _selectedNavIndex = 0;
 
   @override
   void initState() {
@@ -58,9 +59,36 @@ class _HomePageState extends State<HomePage> {
         context,
         MaterialPageRoute(builder: (context) => const ExploreThemesPage()),
       );
+    } else if (title == "News") {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => NewsPage()),
+      );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("$title page is not connected yet")),
+      );
+    }
+  }
+
+  void _onNavTap(int index) {
+    if (index == _selectedNavIndex) return;
+
+    setState(() {
+      _selectedNavIndex = index;
+    });
+
+    if (index == 0) {
+      return;
+    } else if (index == 1) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const CalendarPage()),
+      );
+    } else if (index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const Profile()),
       );
     }
   }
@@ -80,12 +108,12 @@ class _HomePageState extends State<HomePage> {
 
   Future<String> _getUserName() async {
     final user = AuthService().currentUser;
-    if (user == null) return widget.userName.isNotEmpty ? widget.userName : "User";
+    if (user == null) {
+      return widget.userName.isNotEmpty ? widget.userName : "User";
+    }
 
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
+    final doc =
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
     final data = doc.data();
     final name = data?['name']?.toString().trim();
@@ -97,122 +125,235 @@ class _HomePageState extends State<HomePage> {
     return widget.userName.isNotEmpty ? widget.userName : "User";
   }
 
+  Widget _buildGlassIconButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    Color iconColor = Colors.white,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.14),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: IconButton(
+        onPressed: onTap,
+        icon: Icon(
+          icon,
+          color: iconColor,
+          size: 24,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(22, 54, 22, 30),
+      decoration: const BoxDecoration(
+        color: Color(0xFF386641),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(42),
+          bottomRight: Radius.circular(42),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _buildGlassIconButton(
+                icon: Icons.person_outline,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const Profile(),
+                    ),
+                  );
+                },
+              ),
+              const Spacer(),
+              Container(
+                padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(
+                      Icons.emoji_events_outlined,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    SizedBox(width: 8),
+                    Icon(
+                      Icons.local_fire_department,
+                      color: Colors.orange,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 28),
+          FutureBuilder<String>(
+            future: _getUserName(),
+            builder: (context, snapshot) {
+              final name = snapshot.data ?? widget.userName;
+              return Text(
+                "Hello, $name! 👋",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "Let's make today productive",
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 15,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStreakCard(int streak) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFEAEAEA)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3E8),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.local_fire_department,
+              color: Colors.orange,
+              size: 30,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Your Streak",
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "$streak ${streak == 1 ? "Day" : "Days"}",
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: List.generate(
+                    4,
+                        (index) => Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Icon(
+                        Icons.local_fire_department,
+                        size: 18,
+                        color:
+                        index < streak ? Colors.orange : Colors.grey[300],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomNav() {
+    return BottomNavigationBar(
+      currentIndex: _selectedNavIndex,
+      onTap: _onNavTap,
+      type: BottomNavigationBarType.fixed,
+      selectedItemColor: const Color(0xFF386641),
+      unselectedItemColor: Colors.grey,
+      backgroundColor: Colors.white,
+      elevation: 12,
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home_rounded),
+          label: "Home",
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.calendar_month_rounded),
+          label: "Calendar",
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person_rounded),
+          label: "Profile",
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
+      bottomNavigationBar: _buildBottomNav(),
       body: SingleChildScrollView(
         child: Column(
           children: [
-            /// HEADER
-            Container(
-              height: 260,
-              padding: const EdgeInsets.symmetric(horizontal: 25),
-              decoration: const BoxDecoration(
-                color: Color(0xFF386641),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(100),
-                  bottomRight: Radius.circular(100),
-                ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        icon: const Icon(
-                          Icons.person_pin,
-                          color: Colors.white,
-                          size: 40,
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const Profile(),
-                            ),
-                          );
-                        },
-                      ),
-                      const Row(
-                        children: [
-                          Icon(
-                            Icons.emoji_events_outlined,
-                            color: Colors.white,
-                          ),
-                          SizedBox(width: 6),
-                          Icon(
-                            Icons.local_fire_department,
-                            color: Colors.orange,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+            _buildHeader(),
 
-                  const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: FutureBuilder<String>(
-                      future: _getUserName(),
-                      builder: (context, snapshot) {
-                        final name = snapshot.data ?? widget.userName;
-                        return Text(
-                          "Hello, $name! 👋",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Let's make today productive",
-                      style: TextStyle(color: Colors.white70, fontSize: 16),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  /// FIRE STREAK
-                  SizedBox(
-                    height: 30,
-                    child: FutureBuilder<int>(
-                      future: StreakService.getStreak(),
-                      builder: (context, snapshot) {
-                        int streak = snapshot.data ?? 0;
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(
-                            4,
-                                (index) => Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
-                              child: Icon(
-                                Icons.local_fire_department,
-                                color: index < streak
-                                    ? Colors.orange
-                                    : Colors.white,
-                                size: 28,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: FutureBuilder<int>(
+                future: StreakService.getStreak(),
+                builder: (context, snapshot) {
+                  final streak = snapshot.data ?? 0;
+                  return _buildStreakCard(streak);
+                },
               ),
             ),
 
-            const SizedBox(height: 30),
+            const SizedBox(height: 26),
 
             /// MENU TITLE
             const Padding(
@@ -247,7 +388,6 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 28),
 
-            /// UPCOMING SESSION
             /// UPCOMING SESSION
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
